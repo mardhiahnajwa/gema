@@ -1,0 +1,148 @@
+version: '3.9'
+
+services:
+  # ─── Reverse Proxy ────────────────────────────────────────────────
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: gema-nginx
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    depends_on:
+      - api
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    networks:
+      - gema-network
+    restart: unless-stopped
+
+  # ─── FastAPI Application ───────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: gema-api
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - gema-uploads:/app/uploads
+    expose:
+      - "8000"
+    networks:
+      - gema-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ─── Celery Worker ─────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    container_name: gema-worker
+    command: ["celery", "-A", "app.worker", "worker", "--loglevel=info", "--concurrency=4"]
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - gema-uploads:/app/uploads
+    networks:
+      - gema-network
+    restart: unless-stopped
+
+  # ─── Celery Beat Scheduler ─────────────────────────────────────────
+  beat:
+    build:
+      context: .
+      dockerfile: docker/worker/Dockerfile
+    container_name: gema-beat
+    command: ["celery", "-A", "app.worker", "beat", "--loglevel=info", "--scheduler=celery.beat:PersistentScheduler"]
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    volumes:
+      - ./backend:/app
+    networks:
+      - gema-network
+    restart: unless-stopped
+
+  # ─── PostgreSQL Database ───────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: gema-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gema}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gema_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-gema}
+    volumes:
+      - gema-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gema}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gema-network
+    restart: unless-stopped
+
+  # ─── Redis (Cache + Message Broker) ───────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: gema-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - gema-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gema-network
+    restart: unless-stopped
+
+  # ─── MongoDB Atlas Local (vector store) ──────────────────────────
+  mongo:
+    image: mongodb/mongodb-atlas-local:latest
+    container_name: gema-mongo
+    volumes:
+      - gema-mongo:/data/db
+      - gema-mongo-config:/data/configdb
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gema-network
+    restart: unless-stopped
+
+
+networks:
+  gema-network:
+    driver: bridge
+
+volumes:
+  gema-postgres:
+  gema-redis:
+  gema-mongo:
+  gema-mongo-config:
+  gema-uploads:

@@ -1,0 +1,17 @@
+# Files/dirs to exclude from Docker build context
+.git/
+.gitignore
+*.md
+.env
+.env.local
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/
+.idea/
+*.swp
+node_modules/
+backend/uploads/
