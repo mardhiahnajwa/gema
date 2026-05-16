@@ -226,3 +226,169 @@
   font-size: 0.78rem;
   font-weight: 500;
 }
+
+/* ── Pipeline chain preview ──────────────────────────────────────────── */
+.pipeline-chain {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.pipeline-step-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.6rem;
+}
+.pipeline-step-num {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pipeline-step-info { display: flex; flex-direction: column; }
+.pipeline-arrow { color: #475569; font-size: 0.85rem; }
+
+/* ── Pipeline step editor ────────────────────────────────────────────── */
+.pipeline-step-editor {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+}
+.pipeline-step-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pipeline-step-num-sm {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Artifacts Gallery ────────────────────────────────────────────────────── */
+.artifact-gallery-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+.artifact-gallery-card:hover {
+  border-color: #6366f1;
+}
+.artifact-gallery-thumb {
+  position: relative;
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+}
+.artifact-gallery-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: background 0.15s, opacity 0.15s;
+}
+.artifact-gallery-thumb:hover .artifact-gallery-thumb-overlay {
+  background: rgba(0,0,0,0.45);
+  opacity: 1;
+}
+.artifact-gallery-info {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #334155;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ── Artifact full-screen viewer overlay ─────────────────────────────────── */
+.artifact-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+}
+.artifact-viewer-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
+}
+.artifact-viewer-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+.artifact-viewer-code {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1.5rem;
+}
+
+/* ── Settings page ────────────────────────────────────────────────────────── */
+.settings-key-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+}
+.settings-key-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.badge-green {
+  background: rgba(34,197,94,0.15);
+  color: #4ade80;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-gray {
+  background: rgba(148,163,184,0.1);
+  color: #94a3b8;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}

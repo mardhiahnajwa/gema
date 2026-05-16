@@ -133,3 +133,25 @@ def execute_task(self, task_id: str) -> dict:
                 raise self.retry(exc=exc, countdown=30)
             except self.MaxRetriesExceededError:
                 return {"status": "failed", "error": str(exc)}
+
+
+@celery_app.task(name="gema.execute_pipeline", bind=True, max_retries=1)
+def execute_pipeline(self, run_id: str) -> dict:
+    """
+    Run all steps in a Pipeline sequentially, passing outputs forward.
+    """
+    from app.database import SyncSessionLocal
+    from app.services.pipeline_service import execute_pipeline_run
+
+    _set_keys()
+
+    with SyncSessionLocal() as db:
+        try:
+            execute_pipeline_run(run_id, db)
+            return {"status": "completed", "run_id": run_id}
+        except Exception as exc:
+            logger.exception("Pipeline run %s failed: %s", run_id, exc)
+            try:
+                raise self.retry(exc=exc, countdown=10)
+            except self.MaxRetriesExceededError:
+                return {"status": "failed", "error": str(exc)}

@@ -253,3 +253,111 @@ async def build_memory_context(
             )
 
     return short_term, long_term_block
+
+
+# ── Sync wrappers for Celery pipeline execution ───────────────────────────────
+
+def sync_retrieve_long_term_memories(
+    scope_id: str,
+    user_id: str,
+    query: str,
+    top_k: int = LONG_TERM_TOP_K,
+) -> List[str]:
+    """
+    Blocking version of retrieve_long_term_memories for use in Celery workers.
+    scope_id is used as the agent_id field so memories can be scoped to a
+    pipeline or shared globally.
+    """
+    if not scope_id or not query:
+        return []
+    try:
+        from pymongo import MongoClient
+
+        q_vec = _embed([query])[0]
+
+        client = MongoClient(settings.MONGODB_URL)
+        db = client[settings.MONGODB_DB]
+        col = db[_MEMORY_COLLECTION]
+
+        filter_doc: dict = {"agent_id": scope_id}
+        if user_id:
+            filter_doc["user_id"] = user_id
+
+        pipeline_agg = [
+            {
+                "$vectorSearch": {
+                    "index": "memory_vector_index",
+                    "path": "embedding",
+                    "queryVector": q_vec,
+                    "numCandidates": top_k * 10,
+                    "limit": top_k,
+                    "filter": filter_doc,
+                }
+            },
+            {"$project": {"_id": 0, "fact": 1, "score": {"$meta": "vectorSearchScore"}}},
+        ]
+        memories = []
+        for doc in col.aggregate(pipeline_agg):
+            if doc.get("score", 0) > 0.4:
+                memories.append(doc["fact"])
+        client.close()
+        return memories
+    except Exception:
+        return []
+
+
+def sync_store_pipeline_memory(
+    scope_id: str,
+    user_id: str,
+    run_id: str,
+    user_input: str,
+    final_output: str,
+    step_outputs: dict,
+) -> None:
+    """
+    Extract facts from a completed pipeline run and persist to MongoDB.
+    Called synchronously from the Celery worker after run completion.
+    """
+    if not scope_id:
+        return
+    try:
+        from pymongo import MongoClient
+
+        # Build a condensed exchange to extract facts from
+        summary = f"User asked: {user_input}\n\nFinal result: {final_output}"
+        # Also include intermediate outputs for richer fact extraction
+        if step_outputs:
+            steps_text = "\n".join(
+                f"Step {sid}: {out[:300]}" for sid, out in list(step_outputs.items())
+            )
+            summary += f"\n\nStep summaries:\n{steps_text}"
+
+        facts = _extract_facts(user_input or "", summary)
+        if not facts:
+            return
+
+        embeddings = _embed(facts)
+
+        client = MongoClient(settings.MONGODB_URL)
+        db = client[settings.MONGODB_DB]
+        col = db[_MEMORY_COLLECTION]
+
+        docs = []
+        for fact, emb in zip(facts, embeddings):
+            docs.append(
+                {
+                    "agent_id": scope_id,
+                    "user_id": user_id or "",
+                    "conversation_id": run_id,
+                    "fact": fact,
+                    "embedding": emb,
+                    "source": "pipeline_run",
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+            )
+        if docs:
+            col.insert_many(docs)
+        client.close()
+    except Exception:
+        pass  # memory storage is best-effort
+

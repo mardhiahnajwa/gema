@@ -8,12 +8,20 @@ from app.config import settings
 from app.database import create_tables
 from app.routers import agents, chat, knowledge, models, tasks
 from app.routers import mcp as mcp_router
+from app.routers import pipelines as pipelines_router
+from app.routers import artifacts as artifacts_router
+from app.routers import settings as settings_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await create_tables()
+    # Apply API keys stored in DB to os.environ so litellm can use them
+    from app.database import AsyncSessionLocal
+    from app.services.settings_service import apply_all_settings_to_env
+    async with AsyncSessionLocal() as db:
+        await apply_all_settings_to_env(db)
     # Bootstrap MongoDB vector search indexes (best-effort)
     from app.services.knowledge_service import ensure_vector_index
     from app.services.memory_service import ensure_memory_index
@@ -52,6 +60,9 @@ app.include_router(agents.router)
 app.include_router(knowledge.router)
 app.include_router(tasks.router)
 app.include_router(mcp_router.router)
+app.include_router(pipelines_router.router)
+app.include_router(artifacts_router.router)
+app.include_router(settings_router.router)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
